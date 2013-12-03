@@ -26,12 +26,12 @@ AWAY_Z = 1.5
 
 DRAW_X = 1.3
 DRAW_Y = 0.35
-DRAW_Z = 0.6
+DRAW_Z = 0.8
 DRAW_ORIENTATION = Quaternion(*quaternion_from_euler(math.pi, 0, math.pi))
 
 GRAB_X = 0.75
 GRAB_Y = 0.35
-GRAB_Z = 0.7
+GRAB_Z = 0.8
 GRAB_ORIENTATION_Y = 1
 
 
