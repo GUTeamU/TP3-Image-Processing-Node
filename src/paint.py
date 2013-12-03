@@ -13,12 +13,12 @@ from clopema_smach.plan_states import PlanExtAxisState, Plan1ToPoseState, SetSer
 from clopema_smach.grasping_states import PlanGraspItState
 from clopema_smach.utility_states import PoseBufferState
 
-DEBUG=False
+DEBUG=True
 
 IMAGE_PATH=None
 
 EXT_POSITION = math.pi / 2
-Z_OFFSET = 0.02
+Z_OFFSET = 0.08
 
 AWAY_X = 0.75
 AWAY_Y = -0.7
@@ -26,12 +26,12 @@ AWAY_Z = 1.5
 
 DRAW_X = 1.3
 DRAW_Y = 0.35
-DRAW_Z = 0.8
+DRAW_Z = 0.9
 DRAW_ORIENTATION = Quaternion(*quaternion_from_euler(math.pi, 0, math.pi))
 
-GRAB_X = 0.75
-GRAB_Y = 0.35
-GRAB_Z = 0.8
+GRAB_X = 0.65
+GRAB_Y = 0.3
+GRAB_Z = 0.9
 GRAB_ORIENTATION_Y = 1
 
 
@@ -127,6 +127,7 @@ def main():
 
     sq = Sequence(outcomes=['succeeded', 'aborted', 'preempted'], connector_outcome='succeeded')
     with sq:
+        Sequence.add('OPEN_GRIPPER', GripperState(2, True), {'succeeded':'TURN', 'aborted':'HOME'})
         Sequence.add("TURN", ext_plan(), transitions={'aborted':'HOME', 'succeeded':'AWAY'})
         Sequence.add("AWAY", away_plan(), transitions={'aborted':'HOME', 'succeeded':'GRAB'})
         Sequence.add("GRAB", grab_plan(sq), transitions={'aborted':'HOME', 'succeeded':'DRAW'})
