@@ -8,45 +8,48 @@ from smach import State, Sequence
 from clopema_smach import *
 from geometry_msgs.msg import *
 
-from clopema_smach import gensm_plan_vis_exec
-from clopema_smach.plan_states import PlanExtAxisState, Plan1ToPoseState, SetServoPowerOffState, PlanToHomeState
-from clopema_smach.grasping_states import PlanGraspItState
-from clopema_smach.utility_states import PoseBufferState
-
-DEBUG=False
+VISUALIZE=False
+CONFIRM=False
+EXECUTE=True
 
 IMAGE_PATH=None
 
-EXT_POSITION = math.pi / 2
-Z_OFFSET = 0.02
+EXT_POSITION = 0;
+Z_OFFSET = 0.05
 
-AWAY_X = 0.75
-AWAY_Y = -0.7
-AWAY_Z = 1.5
+AWAY_HAND_LINK = 'r1_ee'
+AWAY_X = -0.9
+AWAY_Y = -0.3
+AWAY_Z = 1.2
 
-DRAW_X = 1.3
-DRAW_Y = 0.35
-DRAW_Z = 0.8
+FRAME_ID = 'base_link'
+DRAW_HAND_LINK = 'r2_ee'
+DRAW_X = 0.25
+DRAW_Y = -0.75
+DRAW_Z = 0.75
 DRAW_ORIENTATION = Quaternion(*quaternion_from_euler(math.pi, 0, math.pi))
 
-GRAB_X = 0.75
-GRAB_Y = 0.35
-GRAB_Z = 0.8
+GRAB_X = 0.35
+GRAB_Y = -0.65
+GRAB_Z = DRAW_Z + Z_OFFSET
 GRAB_ORIENTATION_Y = 1
 
 
 def path_from_image(filname):
     return [
-            (DRAW_X, DRAW_Y, DRAW_Z+Z_OFFSET),
+            (DRAW_X, DRAW_Y, DRAW_Z + Z_OFFSET),
             (DRAW_X, DRAW_Y, DRAW_Z),
             (DRAW_X, DRAW_Y - 0.5, DRAW_Z),
             (DRAW_X - 0.5, DRAW_Y - 0.5, DRAW_Z),
+            (DRAW_X - 0.5, DRAW_Y, DRAW_Z),
+            (DRAW_X, DRAW_Y, DRAW_Z),
+            (DRAW_X, DRAW_Y, DRAW_Z + Z_OFFSET)
            ]
 
 
 def grab_plan(sq):
     pose = PoseStamped()
-    pose.header.frame_id = 'base_link'
+    pose.header.frame_id = FRAME_ID
     pose.pose.position.x = GRAB_X
     pose.pose.position.y = GRAB_Y
     pose.pose.position.z = GRAB_Z
@@ -56,21 +59,21 @@ def grab_plan(sq):
     goals.append(pose.pose)
 
     sq.userdata.poses = goals
-    sq.userdata.ik_link = 'r2_ee'
-    sq.userdata.frame_id = 'base_link'
+    sq.userdata.ik_link = DRAW_HAND_LINK
+    sq.userdata.frame_id = FRAME_ID
     sq.userdata.offset_plus = Z_OFFSET
     sq.userdata.offset_minus = Z_OFFSET
 
-    return gensm_plan_vis_exec(PlanGraspItState(), confirm=DEBUG)
+    return gensm_plan_vis_exec(PlanGraspItState(), confirm=CONFIRM, visualize=VISUALIZE, execute=EXECUTE)
 
 def home_plan():
-    return gensm_plan_vis_exec(PlanToHomeState(), confirm=DEBUG)
+    return gensm_plan_vis_exec(PlanToHomeState(), confirm=CONFIRM, visualize=VISUALIZE, execute=EXECUTE)
 
 def ext_plan():
     sq = Sequence(outcomes=['succeeded', 'aborted', 'preempted'], connector_outcome='succeeded')
-    sq.userdata.position = math.pi / 2
+    sq.userdata.position = EXT_POSITION;
 
-    plan = gensm_plan_vis_exec(PlanExtAxisState(), confirm=DEBUG)
+    plan = gensm_plan_vis_exec(PlanExtAxisState(), confirm=CONFIRM, visualize=VISUALIZE, execute=EXECUTE)
     with sq:
         Sequence.add("EXTA", plan)
 
@@ -87,10 +90,10 @@ def away_plan():
     pose.pose.orientation = DRAW_ORIENTATION
 
     sq.userdata.goal = pose
-    sq.userdata.ik_link = 'r1_ee'
-    sq.userdata.frame_id = 'base_link'
+    sq.userdata.ik_link = AWAY_HAND_LINK
+    sq.userdata.frame_id = FRAME_ID
 
-    plan = gensm_plan_vis_exec(Plan1ToXtionPoseState(), confirm=DEBUG)
+    plan = gensm_plan_vis_exec(Plan1ToXtionPoseState(), confirm=CONFIRM, visualize=VISUALIZE, execute=EXECUTE)
     with sq:
         Sequence.add("EXTA", plan)
 
@@ -108,12 +111,12 @@ def draw_plan(path):
         poses.append(copy.deepcopy(pose))
 
     sq = smach.Sequence(outcomes=['succeeded', 'preempted', 'aborted'], connector_outcome='succeeded')
-    goto_plan = gensm_plan_vis_exec(Plan1ToPoseState(), input_keys=['goal', 'ik_link'], confirm=DEBUG)
+    goto_plan = gensm_plan_vis_exec(Plan1ToPoseState(), input_keys=['goal', 'ik_link'], confirm=CONFIRM, visualize=VISUALIZE, execute=EXECUTE)
     sq.userdata.poses = PoseArray()
-    sq.userdata.poses.header.frame_id = 'base_link'
+    sq.userdata.poses.header.frame_id = FRAME_ID
     sq.userdata.poses.poses = poses
-    sq.userdata.frame_id = 'base_link'
-    sq.userdata.ik_link = 'r2_ee'
+    sq.userdata.frame_id = FRAME_ID
+    sq.userdata.ik_link = DRAW_HAND_LINK
 
     with sq:
         smach.Sequence.add('POSE_BUFFER', PoseBufferState())
@@ -129,8 +132,13 @@ def main():
     with sq:
         Sequence.add("TURN", ext_plan(), transitions={'aborted':'HOME', 'succeeded':'AWAY'})
         Sequence.add("AWAY", away_plan(), transitions={'aborted':'HOME', 'succeeded':'GRAB'})
+        # TODO
+        # Open hand to grab -> GRAB
         Sequence.add("GRAB", grab_plan(sq), transitions={'aborted':'HOME', 'succeeded':'DRAW'})
-        Sequence.add("DRAW", draw_plan(path_from_image(IMAGE_PATH)), transitions={'aborted':'HOME', 'succeeded':'HOME'})
+        Sequence.add("DRAW", draw_plan(path_from_image(IMAGE_PATH)), transitions={'aborted':'HOME', 'succeeded':'RELEASE'})
+        Sequence.add("RELEASE", grab_plan(sq), transitions={'aborted':'HOME', 'succeeded':'HOME'})
+        # TODO
+        # Open hand to release -> HOME
         Sequence.add("HOME", home_plan(), transitions={'aborted':'POWER_OFF'})
         Sequence.add("POWER_OFF", SetServoPowerOffState())
 
