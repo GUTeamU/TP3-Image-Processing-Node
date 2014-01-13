@@ -151,7 +151,7 @@ instructions = createInstructions(edges)
 print "finish processing edges"
 #plt.plot([0.0,10.00], [0.0,10.0])
 #plt.show()
-plt.plot(instructions[0][0][0], instructions[0][2][0], instructions[0][0][1], instructions[0][2][1])
+plt.plot(instructions[0][0][0], instructions[0][0][1], instructions[0][2][0], instructions[0][2][1])
 plt.show()
 for instruction in instructions:
 	previous_point = -1

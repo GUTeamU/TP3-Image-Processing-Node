@@ -26,6 +26,3 @@ cv.waitKey(0)
 
 # Saves an image
 cv.imwrite('01.png',img)
-
-# To get openCV on Ubuntu
-sudo apt-get install libopencv-dev
