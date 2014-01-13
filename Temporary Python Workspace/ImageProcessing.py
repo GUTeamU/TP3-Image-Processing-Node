@@ -2,7 +2,7 @@ import cv2 as cv
 # import pyopencv as cv
 import numpy as np
 from matplotlib import pyplot as plt
-import sys
+
 
 # define 0 as lower pen
 # define 1 as raise pen
